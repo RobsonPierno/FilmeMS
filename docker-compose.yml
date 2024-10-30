@@ -1,0 +1,82 @@
+services:
+  filme:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: filme
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/seu_realm
+    networks:
+      - my-network
+    depends_on:
+      - kafka
+      - keycloak
+
+  pessoa:
+    build:
+      context: ../pessoa/pessoa-service
+      dockerfile: Dockerfile
+    container_name: pessoa
+    ports:
+      - "8081:8081"
+    networks:
+      - my-network
+    depends_on:
+      - kafka
+      - keycloak
+      
+  netflix:
+    build:
+      context: ../netflix/app
+      dockerfile: Dockerfile
+    container_name: netflix
+    ports:
+      - "8000:8000"
+    networks:
+      - my-network
+    depends_on:
+      - kafka
+      - keycloak
+      
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.4
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - 22181:2181
+    networks:
+      - my-network
+  
+  kafka:
+    image: confluentinc/cp-kafka:7.4.4
+    depends_on:
+      - zookeeper
+    ports:
+      - 29092:29092
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - my-network
+      
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+    ports:
+      - 8180:8080
+    command: start-dev
+    networks:
+      - my-network
+
+networks:
+  my-network:
+    driver: bridge
